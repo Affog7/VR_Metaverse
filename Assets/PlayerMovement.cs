@@ -13,6 +13,10 @@ public class PlayerController : MonoBehaviour
     private Vector3 velocity;
     private float yRotation = 0f;
 
+    // Mouvements via WebSocket
+    private Vector3 externalMovement = Vector3.zero;
+    private float externalRotation = 0f;
+
     void Start()
     {
         controller = GetComponent<CharacterController>();
@@ -27,15 +31,18 @@ public class PlayerController : MonoBehaviour
     {
         // 🖱️ Rotation souris (gauche-droite)
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
-        yRotation += mouseX;
+        yRotation += mouseX + externalRotation;
         transform.rotation = Quaternion.Euler(0f, yRotation, 0f);
+        externalRotation = 0f; // reset
 
-        // 🧍‍♂️ Déplacement avec ZQSD
+        // 🧍‍♂️ Déplacement clavier + WebSocket
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
-        Vector3 move = transform.right * x + transform.forward * z;
+        Vector3 inputMove = transform.right * x + transform.forward * z;
+        Vector3 move = inputMove + externalMovement;
 
         controller.Move(move * moveSpeed * Time.deltaTime);
+        externalMovement = Vector3.zero; // reset
 
         // 🎞️ Animation (Idle / Walk / Run)
         if (animator != null)
@@ -45,12 +52,40 @@ public class PlayerController : MonoBehaviour
         bool isGrounded = controller.isGrounded;
 
         if (isGrounded && velocity.y < 0)
-            velocity.y = -2f; // coller au sol
+            velocity.y = -2f;
 
         if (Input.GetButtonDown("Jump") && isGrounded)
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
 
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
+    }
+
+    // ========== Méthodes publiques appelables via WebSocket ==========
+
+    public void Avancer()
+    {
+        externalMovement = transform.forward;
+    }
+
+    public void Reculer()
+    {
+        externalMovement = -transform.forward;
+    }
+
+    public void TournerDroite()
+    {
+        externalRotation = 90f;
+    }
+
+    public void TournerGauche()
+    {
+        externalRotation = -90f;
+    }
+
+    public void Sauter()
+    {
+        if (controller.isGrounded)
+            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
     }
 }
